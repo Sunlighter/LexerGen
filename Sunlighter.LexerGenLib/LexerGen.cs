@@ -219,7 +219,8 @@ namespace Sunlighter.LexerGenLib
             return results;
         }
 
-        public static ImmutableList<(string, Option<TAccept>)> Lex<TState, TAccept>(
+        public static (ImmutableList<(string, Option<TAccept>)>, TState) Lex<TState, TAccept>
+        (
             this ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>> dfaStates,
             TState initialState,
             Func<TAccept, TState> getNextState,
@@ -252,7 +253,7 @@ namespace Sunlighter.LexerGenLib
                 }
             }
 
-            return results;
+            return (results, currentState);
         }
     }
 }
