@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Immutable;
-using Sunlighter.LexerGenLib.RegexParsing;
+﻿using Sunlighter.LexerGenLib.RegexParsing;
 using Sunlighter.OptionLib;
 using Sunlighter.TypeTraitsLib;
+using System.Collections.Immutable;
 
 namespace Sunlighter.LexerGenLib
 {
@@ -22,6 +21,44 @@ namespace Sunlighter.LexerGenLib
             ICharSetTraits<ImmutableList<char>, char> charSetTraits,
             INFATraits<NFA<ImmutableList<char>, TAccept>, Func<NFABuilder<ImmutableList<char>, TAccept>, NFA_AddResult>, ImmutableList<char>, char, TAccept> nfaTraits
         );
+
+        public static ITypeTraits<LexerRule<TAccept>> GetTypeTraits(ITypeTraits<TAccept> acceptCodeTypeTraits)
+        {
+            return new UnionTypeTraits<string, LexerRule<TAccept>>
+            (
+                StringTypeTraits.Value,
+                [
+                    new UnionCaseTypeTraits2<string, LexerRule<TAccept>, LiteralLexerRule<TAccept>>
+                    (
+                        "Literal",
+                        new ConvertTypeTraits<LiteralLexerRule<TAccept>, (string, TAccept)>
+                        (
+                            llr => (llr.Value, llr.AcceptCode),
+                            new ValueTupleTypeTraits<string, TAccept>
+                            (
+                                StringTypeTraits.Value,
+                                acceptCodeTypeTraits
+                            ),
+                            v => new LiteralLexerRule<TAccept>(v.Item1, v.Item2)
+                        )
+                    ),
+                    new UnionCaseTypeTraits2<string, LexerRule<TAccept>, RegexLexerRule<TAccept>>
+                    (
+                        "Regex",
+                        new ConvertTypeTraits<RegexLexerRule<TAccept>, (string, TAccept)>
+                        (
+                            rlr => (rlr.Regex, rlr.AcceptCode),
+                            new ValueTupleTypeTraits<string, TAccept>
+                            (
+                                StringTypeTraits.Value,
+                                acceptCodeTypeTraits
+                            ),
+                            v => new RegexLexerRule<TAccept>(v.Item1, v.Item2)
+                        )
+                    )
+                ]
+            );
+        }
     }
 
     public sealed class LiteralLexerRule<TAccept> : LexerRule<TAccept>
@@ -112,6 +149,14 @@ namespace Sunlighter.LexerGenLib
             DFA<ImmutableList<char>, TAccept> minimalDfa = realDfa.Minimize(charSetTraits, acceptCodeTraits);
 
             return minimalDfa;
+        }
+
+        public static ITypeTraits<ImmutableList<LexerRule<TAccept>>> GetRuleListTypeTraits<TAccept>(ITypeTraits<TAccept> acceptCodeTypeTraits)
+        {
+            return new ListTypeTraits<LexerRule<TAccept>>
+            (
+                LexerRule<TAccept>.GetTypeTraits(acceptCodeTypeTraits)
+            );
         }
 
         public static ITypeTraits<DFA<ImmutableList<char>, TAccept>> GetDFATypeTraits<TAccept>(ITypeTraits<TAccept> acceptCodeTypeTraits)
