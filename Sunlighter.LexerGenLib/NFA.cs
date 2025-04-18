@@ -1231,10 +1231,10 @@ namespace Sunlighter.LexerGenLib
             }
         }
 
-        public static Option<(int, TAccept)> TryMatchPrefix<TAccept>(this DFA<ImmutableList<char>, TAccept> dfa, string input)
+        public static Option<(int, TAccept)> TryMatchPrefix<TAccept>(this DFA<ImmutableList<char>, TAccept> dfa, string input, int startPos = 0)
         {
             int state = dfa.StartState;
-            int pos = 0;
+            int pos = startPos;
 
             ImmutableListRangeSetTraits<char> charSetTraits = new ImmutableListRangeSetTraits<char>(LexerCharTraits.Value);
 
@@ -1247,7 +1247,7 @@ namespace Sunlighter.LexerGenLib
                 ++pos;
                 if (dfa.AcceptCodes.TryGetValue(nextState, out TAccept? acceptCode))
                 {
-                    longestMatch = Option<(int, TAccept)>.Some((pos, acceptCode));
+                    longestMatch = Option<(int, TAccept)>.Some((pos - startPos, acceptCode));
                 }
                 else if (dfa.DeadState.HasValue && dfa.DeadState.Value == nextState)
                 {

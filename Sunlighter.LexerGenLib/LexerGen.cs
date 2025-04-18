@@ -133,7 +133,7 @@ namespace Sunlighter.LexerGenLib
         {
             var charSetTraits = new ImmutableListRangeSetTraits<char>(LexerCharTraits.Value);
             var nfaTraits = new NFATraits<char, TAccept>(LexerCharTraits.Value, new ImmutableListRangeSetTraits<char>(LexerCharTraits.Value));
-            
+
             ImmutableList<(Func<NFABuilder<ImmutableList<char>, TAccept>, NFA_AddResult>, TAccept)> nfas = rules
                 .Select(rule => rule.Eval(charSetTraits, nfaTraits))
                 .ToImmutableList();
@@ -166,6 +166,93 @@ namespace Sunlighter.LexerGenLib
                 new ListTypeTraits<char>(CharTypeTraits.Value),
                 acceptCodeTypeTraits
             );
+        }
+
+        public static ImmutableList<(string, Option<TAccept>)> Lex<TAccept>(this DFA<ImmutableList<char>, TAccept> dfa, string input, int startPos = 0)
+        {
+            ImmutableList<(string, Option<TAccept>)> results = [];
+            int pos = startPos;
+            int endPos = input.Length;
+
+            while (pos < endPos)
+            {
+                Option<(int, TAccept)> matchResult = dfa.TryMatchPrefix(input, pos);
+                if (matchResult.HasValue)
+                {
+                    int len = matchResult.Value.Item1;
+                    TAccept acceptCode = matchResult.Value.Item2;
+                    string matchedString = input.Substring(pos, len);
+                    pos += len;
+                    results = results.Add((matchedString, Option<TAccept>.Some(acceptCode)));
+                }
+                else
+                {
+                    string junk = input.Substring(pos, 1);
+                    pos++;
+                    results = results.Add((junk, Option<TAccept>.None));
+                }
+            }
+
+            return results;
+        }
+
+        public static ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>> GenerateLexer<TState, TAccept>
+        (
+            ImmutableSortedDictionary<TState, ImmutableList<LexerRule<TAccept>>> rules,
+            ITypeTraits<TState> stateTraits,
+            ITypeTraits<TAccept> acceptCodeTraits
+        )
+            where TState : notnull
+        {
+            var stateComparer = Adapter<TState>.Create(stateTraits);
+            ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>> results =
+                ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>>.Empty.WithComparers(stateComparer);
+
+            foreach (KeyValuePair<TState, ImmutableList<LexerRule<TAccept>>> kvp in rules)
+            {
+                TState state = kvp.Key;
+                ImmutableList<LexerRule<TAccept>> ruleList = kvp.Value;
+                DFA<ImmutableList<char>, TAccept> dfa = GenerateLexer(ruleList, acceptCodeTraits);
+                results = results.Add(state, dfa);
+            }
+
+            return results;
+        }
+
+        public static ImmutableList<(string, Option<TAccept>)> Lex<TState, TAccept>(
+            this ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>> dfaStates,
+            TState initialState,
+            Func<TAccept, TState> getNextState,
+            string input, int startPos = 0
+        )
+            where TState : notnull
+        {
+            ImmutableList<(string, Option<TAccept>)> results = [];
+            int pos = startPos;
+            int endPos = input.Length;
+            TState currentState = initialState;
+
+            while (pos < endPos)
+            {
+                Option<(int, TAccept)> matchResult = dfaStates[currentState].TryMatchPrefix(input, pos);
+                if (matchResult.HasValue)
+                {
+                    int len = matchResult.Value.Item1;
+                    TAccept acceptCode = matchResult.Value.Item2;
+                    currentState = getNextState(acceptCode);
+                    string matchedString = input.Substring(pos, len);
+                    pos += len;
+                    results = results.Add((matchedString, Option<TAccept>.Some(acceptCode)));
+                }
+                else
+                {
+                    string junk = input.Substring(pos, 1);
+                    pos++;
+                    results = results.Add((junk, Option<TAccept>.None));
+                }
+            }
+
+            return results;
         }
     }
 }

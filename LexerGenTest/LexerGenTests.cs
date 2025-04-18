@@ -4,7 +4,7 @@ using Sunlighter.OptionLib;
 using Sunlighter.TypeTraitsLib;
 using System.Collections.Immutable;
 
-namespace LrParserGenTest
+namespace LexerGenTest
 {
     [TestClass]
     public class LexerGenTests
