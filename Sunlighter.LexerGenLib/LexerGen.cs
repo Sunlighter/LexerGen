@@ -219,6 +219,34 @@ namespace Sunlighter.LexerGenLib
             return results;
         }
 
+        public static ITypeTraits<ImmutableSortedDictionary<TState, ImmutableList<LexerRule<TAccept>>>> GetRuleDictionaryTypeTraits<TState, TAccept>
+        (
+            ITypeTraits<TState> stateTraits,
+            ITypeTraits<TAccept> acceptCodeTraits
+        )
+            where TState : notnull
+        {
+            return new DictionaryTypeTraits<TState, ImmutableList<LexerRule<TAccept>>>
+            (
+                stateTraits,
+                GetRuleListTypeTraits(acceptCodeTraits)
+            );
+        }
+
+        public static ITypeTraits<ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>>> GetDFADictionaryTypeTraits<TState, TAccept>
+        (
+            ITypeTraits<TState> stateTraits,
+            ITypeTraits<TAccept> acceptCodeTraits
+        )
+            where TState : notnull
+        {
+            return new DictionaryTypeTraits<TState, DFA<ImmutableList<char>, TAccept>>
+            (
+                stateTraits,
+                GetDFATypeTraits(acceptCodeTraits)
+            );
+        }
+
         public static (ImmutableList<(string, Option<TAccept>)>, TState) Lex<TState, TAccept>
         (
             this ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>> dfaStates,
