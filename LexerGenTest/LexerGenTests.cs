@@ -82,7 +82,7 @@ namespace LexerGenTest
         {
             var regexParser = RegexParser.DefaultParser;
 
-            string[] regexes = [ "[A-Z|a-z]+", "ABC", "(A|a)bc", "\\x1B;a" ];
+            string[] regexes = [ "[A-Z|a-z]+", "ABC", "(A|a)bc", "\\x1B;a", "(((())))" ];
 
             ITypeTraits<Option<StackItem<ImmutableList<char>, char>>> stackItemOptionTraits =
                 new OptionTypeTraits<StackItem<ImmutableList<char>, char>>
