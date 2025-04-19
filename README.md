@@ -1,4 +1,4 @@
-<!-- -*- coding: utf-8; fill-column: 118 -*- -->
+﻿<!-- -*- coding: utf-8; fill-column: 118 -*- -->
 
 # LexerGenLib
 
@@ -7,21 +7,116 @@ A lexical analyzer generator.
 This is a lexical analyzer generator that follows the classical algorithms in the Dragon Book. (*Compilers:
 Principles, Techniques, and Tools* by Aho, Sethi, and Ullman, 1986).
 
-The code has been generalized by using *traits* interfaces. Although the implementation is designed around `char`, it
-might be possible to use the generalization to easily support lexical analyzers based on `byte` or `Rune`. However,
-the traits generalization itself seems to introduce a lot of complexity. (There are a couple of underlying
-assumptions, one that a character code fits in a 32-bit `int`, and another that hexadecimal ranges like `[0-9]` are
-contiguous.)
+This project is a library and does not generate code. Instead, it generates tables at runtime. However, using the
+**Sunlighter.TypeTraitsLib** library, it is possible to compare, hash, serialize, and deserialize both the tables and
+the lexer specification used to make them. So caching is possible. (Further, the data structures are sufficiently
+exposed that you could, in principle, write your own code generator.)
 
-The code also uses *range sets* to represent character sets. This is more efficient than storing lists or sets of
-individual characters, particularly given that the `char` type is 16-bit.
+The code has been generalized by using further &ldquo;traits&rdquo; interfaces. Although the implementation is
+designed around `char`, it might be possible to use the generalization to easily support lexical analyzers based on
+`byte` or `Rune`. However, the traits generalization itself introduces a lot of complexity. (There are a couple of
+underlying assumptions, one that a character code fits in a 32-bit `int`, and another that hexadecimal ranges like
+`[0-9]` are contiguous. I think these assumptions are true for ASCII, ISO-8859-1, UTF-8, and UTF-32, but possibly not
+EBCDIC. Most of these assumptions are only made when parsing regular expressions.)
 
-The main entry point is `LegerGen.GenerateLexer`, which takes a list of rules with their accept codes, and generates a
-minimized DFA.
+The code also uses *range sets* to represent character sets. Range sets are more efficient than storing lists or sets
+of individual characters, particularly given that the `char` type is 16-bit.
 
-The DFA can be serialized with type traits (use `GetDFATypeTraits` and pass the type traits for the accept codes) and
-there is an extension method `TryMatchPrefix` which will return the longest matching prefix (using the greatest accept
-code as a tie-breaker).
+## Usage
+
+In the `Sunligher.LexerGenLib` namespace, the main class is `LexerGen`. It has two `GenerateLexer` functions, either
+of which may be suitable. One takes an immutable list of &ldquo;rules,&rdquo; where each rule can be a literal string
+to be matched, or a regular expression. These rules are always case-sensitive. Each rule must also include an accept
+code. This `GenerateLexer` function computes and returns a DFA (deterministic finite automaton).
+
+The other `GenerateLexer` function takes a dictionary that goes from &ldquo;lexer states&rdquo; to lists of rules. It
+returns a dictionary that goes from the same &ldquo;lexer states&rdquo; to the corresponding DFAs.
+
+Then there are two `Lex` functions. One takes a single DFA and a string, and returns a list of tuples each of which
+has a matched string and accept code. (In the event that nothing matches the input, you will get a single character
+and no accept code.) The other `Lex` function takes a dictionary from states to DFAs, and a string, and also requires
+a function that maps the accept codes to their &ldquo;next states.&rdquo; It returns a similar list of tuples.
+
+## Caching
+
+Because it takes time to generate DFAs, a caching strategy may be helpful. Right now there is an interface called
+`ICacheStorage` which represents a single-entry cache. It is expected to implement two functions: `TryGet` and `Set`.
+The `TryGet` function takes no arguments and returns an `Option<byte[]>` with the bytes from the cache, or `None` if
+the cache is empty. The `Set` function takes an array of bytes and replaces the cache content with the given bytes.
+
+There is an extension method called `GetCachedValue` which takes a key and a value and traits for their types, and
+tries to retrieve the cached value. If the cache value exists and the hash of the key matches, the computation can be
+skipped; otherwise, the computation is carried out, and the cached value is replaced.
+
+So for example you can write:
+
+```csharp
+class FileCache : ICacheStorage
+{
+    private readonly string _fileName;
+
+    public FileCache(string fileName)
+    {
+        _fileName = fileName;
+    }
+
+    public Option<byte[]> TryGet()
+    {
+        if (File.Exists(_fileName))
+        {
+            return Option<byte[]>.Some(File.ReadAllBytes(_fileName));
+        }
+        else return Option<byte[]>.None;
+    }
+
+    public void Set(byte[] bytes)
+    {
+        File.WriteAllBytes(_fileName, bytes);
+    }
+}
+
+class MyCode
+{
+    const int WHITE_SPACE = 0;
+    const int IDENT = 1;
+    const int INTEGER = 2;
+    // etc
+
+    static void MyFunc(string input)
+    {
+        ImmutableList<LexerRule<int>> rules =
+        [
+            new RegexLexerRule<int>("[ |\\r|\\n|\\t|\\f|\\v]+", WHITE_SPACE),
+            new RegexLexerRule<int>("[A-Z|a-z|_][A-Z|a-z|0-9|_]*", IDENT),
+            new RegexLexerRule<int>("-?[1-9][0-9]*", INTEGER),
+            // etc
+        ];
+
+        FileCache cache = new FileCache
+        (
+            Path.Combine
+            (
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                "LexerCache.bin"
+            )
+        );
+
+        DFA<ImmutableList<char>, int> dfa = cache.GetCachedValue
+        (
+            LexerGen.GetRuleListTypeTraits(Int32TypeTraits.Value),
+            LexerGen.GetDFATypeTraits(Int32TypeTraits.Value),
+            rules,
+            r => LexerGen.GenerateLexer(r, Int32TypeTraits.Value)
+        );
+
+        ImmutableList<(string, Option<int>)> lexResults = dfa.Lex(input);
+
+        // etc
+    }
+}
+```
+
+## Regular Expression Syntax
 
 `GenerateLexer` supports regular expressions, but these regexes have a slightly different syntax from Perl-compatible
 regexes, which makes sense given their different capabilities. Regular expressions are parsed into a parse tree using
