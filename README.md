@@ -7,6 +7,8 @@ A lexical analyzer generator.
 This is a lexical analyzer generator that follows the classical algorithms in the Dragon Book. (*Compilers:
 Principles, Techniques, and Tools* by Aho, Sethi, and Ullman, 1986).
 
+It is now available as a NuGet package, **Sunlighter.LexerGenLib**.
+
 This project is a library and does not generate code. Instead, it generates tables at runtime. However, using the
 **Sunlighter.TypeTraitsLib** library, it is possible to compare, hash, serialize, and deserialize both the tables and
 the lexer specification used to make them. So caching is possible. (Further, the data structures are sufficiently
