@@ -1248,6 +1248,7 @@ namespace Sunlighter.LexerGenLib
                 if (dfa.AcceptCodes.TryGetValue(nextState, out TAccept? acceptCode))
                 {
                     longestMatch = Option<(int, TAccept)>.Some((pos - startPos, acceptCode));
+                    state = nextState;
                 }
                 else if (dfa.DeadState.HasValue && dfa.DeadState.Value == nextState)
                 {

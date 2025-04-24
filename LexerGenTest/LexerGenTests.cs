@@ -2,6 +2,7 @@
 using Sunlighter.LexerGenLib.RegexParsing;
 using Sunlighter.OptionLib;
 using Sunlighter.TypeTraitsLib;
+using System;
 using System.Collections.Immutable;
 
 namespace LexerGenTest
@@ -107,5 +108,38 @@ namespace LexerGenTest
                 Assert.IsTrue(result.HasValue);
             }
         }
+
+        [TestMethod]
+        public void LexerTest()
+        {
+            var lexer = GenerateLexer();
+
+            string input = "(a b c)";
+
+            var (lexResult, nextState) = LexerGen.Lex(lexer, "main", _ => "main", input);
+
+            Assert.AreEqual(7, lexResult.Count);
+        }
+
+        private ImmutableSortedDictionary<string, DFA<ImmutableList<char>, string>> GenerateLexer()
+        {
+            return LexerGen.GenerateLexer
+            (
+                ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>>.Empty.Add
+                (
+                    "main",
+                    [
+                        new RegexLexerRule<string>("[ |\\r|\\n|\\t|\\f|\\v]+", "WhiteSpace"),
+                        new LiteralLexerRule<string>("(", "LParen"),
+                        new RegexLexerRule<string>("-?(0|[1-9][0-9]*)", "Integer"),
+                        new LiteralLexerRule<string>(")", "RParen"),
+                        new RegexLexerRule<string>("[A-Z|a-z|_|$][A-Z|A-z|0-9|_|$]*", "Identifier")
+                    ]
+                ),
+                StringTypeTraits.Value,
+                StringTypeTraits.Value
+            );
+        }
+
     }
 }
