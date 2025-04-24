@@ -15,9 +15,9 @@
     <PackageProjectUrl>https://github.com/Sunlighter/FrayedKnot</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- <GenerateDocumentationFile>true</GenerateDocumentationFile> -->
-    <AssemblyVersion>1.0.0</AssemblyVersion>
-    <FileVersion>1.0.0</FileVersion>
-    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.1</AssemblyVersion>
+    <FileVersion>1.0.1</FileVersion>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
