@@ -15,9 +15,9 @@
     <PackageProjectUrl>https://github.com/Sunlighter/LexerGen</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- <GenerateDocumentationFile>true</GenerateDocumentationFile> -->
-    <AssemblyVersion>1.0.1</AssemblyVersion>
-    <FileVersion>1.0.1</FileVersion>
-    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.2</AssemblyVersion>
+    <FileVersion>1.0.2</FileVersion>
+    <Version>1.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
