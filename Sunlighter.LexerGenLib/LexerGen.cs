@@ -1,10 +1,13 @@
 ﻿using Sunlighter.LexerGenLib.RegexParsing;
 using Sunlighter.OptionLib;
 using Sunlighter.TypeTraitsLib;
+using Sunlighter.TypeTraitsLib.Building;
 using System.Collections.Immutable;
+using System.ComponentModel;
 
 namespace Sunlighter.LexerGenLib
 {
+    [UnionOfDescendants]
     public abstract class LexerRule<TAccept>
     {
         private readonly TAccept acceptCode;
@@ -14,6 +17,7 @@ namespace Sunlighter.LexerGenLib
             this.acceptCode = acceptCode;
         }
 
+        [Bind("acceptCode")]
         public TAccept AcceptCode => acceptCode;
 
         public abstract (Func<NFABuilder<ImmutableList<char>, TAccept>, NFA_AddResult>, TAccept) Eval
@@ -21,56 +25,21 @@ namespace Sunlighter.LexerGenLib
             ICharSetTraits<ImmutableList<char>, char> charSetTraits,
             INFATraits<NFA<ImmutableList<char>, TAccept>, Func<NFABuilder<ImmutableList<char>, TAccept>, NFA_AddResult>, ImmutableList<char>, char, TAccept> nfaTraits
         );
-
-        public static ITypeTraits<LexerRule<TAccept>> GetTypeTraits(ITypeTraits<TAccept> acceptCodeTypeTraits)
-        {
-            return new UnionTypeTraits<string, LexerRule<TAccept>>
-            (
-                StringTypeTraits.Value,
-                [
-                    new UnionCaseTypeTraits2<string, LexerRule<TAccept>, LiteralLexerRule<TAccept>>
-                    (
-                        "Literal",
-                        new ConvertTypeTraits<LiteralLexerRule<TAccept>, (string, TAccept)>
-                        (
-                            llr => (llr.Value, llr.AcceptCode),
-                            new ValueTupleTypeTraits<string, TAccept>
-                            (
-                                StringTypeTraits.Value,
-                                acceptCodeTypeTraits
-                            ),
-                            v => new LiteralLexerRule<TAccept>(v.Item1, v.Item2)
-                        )
-                    ),
-                    new UnionCaseTypeTraits2<string, LexerRule<TAccept>, RegexLexerRule<TAccept>>
-                    (
-                        "Regex",
-                        new ConvertTypeTraits<RegexLexerRule<TAccept>, (string, TAccept)>
-                        (
-                            rlr => (rlr.Regex, rlr.AcceptCode),
-                            new ValueTupleTypeTraits<string, TAccept>
-                            (
-                                StringTypeTraits.Value,
-                                acceptCodeTypeTraits
-                            ),
-                            v => new RegexLexerRule<TAccept>(v.Item1, v.Item2)
-                        )
-                    )
-                ]
-            );
-        }
     }
 
+    [Record]
+    [UnionCaseName("literal")]
     public sealed class LiteralLexerRule<TAccept> : LexerRule<TAccept>
     {
         private readonly string value;
 
-        public LiteralLexerRule(string value, TAccept acceptCode)
+        public LiteralLexerRule([Bind("value")] string value, [Bind("acceptCode")] TAccept acceptCode)
             : base(acceptCode)
         {
             this.value = value;
         }
 
+        [Bind("value")]
         public string Value => value;
 
         public override (Func<NFABuilder<ImmutableList<char>, TAccept>, NFA_AddResult>, TAccept) Eval
@@ -89,16 +58,19 @@ namespace Sunlighter.LexerGenLib
         }
     }
 
+    [Record]
+    [UnionCaseName("regex")]
     public sealed class RegexLexerRule<TAccept> : LexerRule<TAccept>
     {
         private readonly string regex;
 
-        public RegexLexerRule(string regex, TAccept acceptCode)
+        public RegexLexerRule([Bind("regex")] string regex, [Bind("acceptCode")] TAccept acceptCode)
             : base(acceptCode)
         {
             this.regex = regex;
         }
 
+        [Bind("regex")]
         public string Regex => regex;
 
         public override (Func<NFABuilder<ImmutableList<char>, TAccept>, NFA_AddResult>, TAccept) Eval
@@ -129,8 +101,10 @@ namespace Sunlighter.LexerGenLib
 
     public static class LexerGen
     {
-        public static DFA<ImmutableList<char>, TAccept> GenerateLexer<TAccept>(ImmutableList<LexerRule<TAccept>> rules, ITypeTraits<TAccept> acceptCodeTraits)
+        public static DFA<ImmutableList<char>, TAccept> GenerateLexer<TAccept>(ImmutableList<LexerRule<TAccept>> rules)
         {
+            var acceptCodeTraits = Builder.Instance.GetTypeTraits<TAccept>();
+
             var charSetTraits = new ImmutableListRangeSetTraits<char>(LexerCharTraits.Value);
             var nfaTraits = new NFATraits<char, TAccept>(LexerCharTraits.Value, new ImmutableListRangeSetTraits<char>(LexerCharTraits.Value));
 
@@ -149,23 +123,6 @@ namespace Sunlighter.LexerGenLib
             DFA<ImmutableList<char>, TAccept> minimalDfa = realDfa.Minimize(charSetTraits, acceptCodeTraits);
 
             return minimalDfa;
-        }
-
-        public static ITypeTraits<ImmutableList<LexerRule<TAccept>>> GetRuleListTypeTraits<TAccept>(ITypeTraits<TAccept> acceptCodeTypeTraits)
-        {
-            return new ListTypeTraits<LexerRule<TAccept>>
-            (
-                LexerRule<TAccept>.GetTypeTraits(acceptCodeTypeTraits)
-            );
-        }
-
-        public static ITypeTraits<DFA<ImmutableList<char>, TAccept>> GetDFATypeTraits<TAccept>(ITypeTraits<TAccept> acceptCodeTypeTraits)
-        {
-            return DFA<ImmutableList<char>, TAccept>.GetTypeTraits
-            (
-                new ListTypeTraits<char>(CharTypeTraits.Value),
-                acceptCodeTypeTraits
-            );
         }
 
         public static ImmutableList<(string, Option<TAccept>)> Lex<TAccept>(this DFA<ImmutableList<char>, TAccept> dfa, string input, int startPos = 0)
@@ -198,12 +155,13 @@ namespace Sunlighter.LexerGenLib
 
         public static ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>> GenerateLexer<TState, TAccept>
         (
-            ImmutableSortedDictionary<TState, ImmutableList<LexerRule<TAccept>>> rules,
-            ITypeTraits<TState> stateTraits,
-            ITypeTraits<TAccept> acceptCodeTraits
+            ImmutableSortedDictionary<TState, ImmutableList<LexerRule<TAccept>>> rules
         )
             where TState : notnull
         {
+            var stateTraits = Builder.Instance.GetTypeTraits<TState>();
+            var acceptCodeTraits = Builder.Instance.GetTypeTraits<TAccept>();
+
             var stateComparer = Adapter<TState>.Create(stateTraits);
             ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>> results =
                 ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>>.Empty.WithComparers(stateComparer);
@@ -212,39 +170,11 @@ namespace Sunlighter.LexerGenLib
             {
                 TState state = kvp.Key;
                 ImmutableList<LexerRule<TAccept>> ruleList = kvp.Value;
-                DFA<ImmutableList<char>, TAccept> dfa = GenerateLexer(ruleList, acceptCodeTraits);
+                DFA<ImmutableList<char>, TAccept> dfa = GenerateLexer(ruleList);
                 results = results.Add(state, dfa);
             }
 
             return results;
-        }
-
-        public static ITypeTraits<ImmutableSortedDictionary<TState, ImmutableList<LexerRule<TAccept>>>> GetRuleDictionaryTypeTraits<TState, TAccept>
-        (
-            ITypeTraits<TState> stateTraits,
-            ITypeTraits<TAccept> acceptCodeTraits
-        )
-            where TState : notnull
-        {
-            return new DictionaryTypeTraits<TState, ImmutableList<LexerRule<TAccept>>>
-            (
-                stateTraits,
-                GetRuleListTypeTraits(acceptCodeTraits)
-            );
-        }
-
-        public static ITypeTraits<ImmutableSortedDictionary<TState, DFA<ImmutableList<char>, TAccept>>> GetDFADictionaryTypeTraits<TState, TAccept>
-        (
-            ITypeTraits<TState> stateTraits,
-            ITypeTraits<TAccept> acceptCodeTraits
-        )
-            where TState : notnull
-        {
-            return new DictionaryTypeTraits<TState, DFA<ImmutableList<char>, TAccept>>
-            (
-                stateTraits,
-                GetDFATypeTraits(acceptCodeTraits)
-            );
         }
 
         public static (ImmutableList<(string, Option<TAccept>)>, TState) Lex<TState, TAccept>

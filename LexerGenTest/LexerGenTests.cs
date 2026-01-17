@@ -2,6 +2,7 @@
 using Sunlighter.LexerGenLib.RegexParsing;
 using Sunlighter.OptionLib;
 using Sunlighter.TypeTraitsLib;
+using Sunlighter.TypeTraitsLib.Building;
 using System;
 using System.Collections.Immutable;
 
@@ -83,17 +84,9 @@ namespace LexerGenTest
         {
             var regexParser = RegexParser.DefaultParser;
 
-            string[] regexes = [ "[A-Z|a-z]+", "ABC", "(A|a)bc", "\\x1B;a", "(((())))" ];
+            string[] regexes = [ "[A-Z|a-z]+", "ABC", "(A|a)bc", "\\x1B;a", "(((())))", "[~\"&~\\\\]+" ];
 
-            ITypeTraits<Option<StackItem<ImmutableList<char>, char>>> stackItemOptionTraits =
-                new OptionTypeTraits<StackItem<ImmutableList<char>, char>>
-                (
-                    StackItem<ImmutableList<char>, char>.GetTypeTraits
-                    (
-                        new ListTypeTraits<char>(CharTypeTraits.Value),
-                        CharTypeTraits.Value
-                    )
-                );
+            ITypeTraits<Option<StackItem<ImmutableList<char>, char>>> stackItemOptionTraits = Builder.Instance.GetTypeTraits<Option<StackItem<ImmutableList<char>, char>>>();
 
             foreach (string regex in regexes)
             {
@@ -114,30 +107,93 @@ namespace LexerGenTest
         {
             var lexer = GenerateLexer();
 
-            string input = "(a b c)";
+            string input = "(a b c \"string\")";
 
-            var (lexResult, nextState) = LexerGen.Lex(lexer, "main", _ => "main", input);
+            ImmutableSortedDictionary<string, string> nextStates = ImmutableSortedDictionary<string, string>.Empty
+                .Add("WhiteSpace", "main")
+                .Add("LParen", "main")
+                .Add("Integer", "main")
+                .Add("RParen", "main")
+                .Add("Identifier", "main")
+                .Add("BeginString", "string")
+                .Add("EndString", "main")
+                .Add("StringContent", "string");
 
-            Assert.AreEqual(7, lexResult.Count);
+            var (lexResult, nextState) = LexerGen.Lex(lexer, "main", x => nextStates[x], input);
+
+            foreach(var (tokenText, tokenTypeOpt) in lexResult)
+            {
+                string s =
+                    Builder.Instance.GetTypeTraits<string>().ToDebugString(tokenText) + " " +
+                Builder.Instance.GetTypeTraits<Option<string>>().ToDebugString(tokenTypeOpt);
+
+                System.Diagnostics.Debug.WriteLine(s);
+            }
+
+            Assert.AreEqual(11, lexResult.Count);
+        }
+
+        [TestMethod]
+        public void SerializeLexerTest()
+        {
+            ImmutableSortedDictionary<string, DFA<ImmutableList<char>, string>> lexer = GenerateLexer();
+            var traits = Builder.Instance.GetTypeTraits<ImmutableSortedDictionary<string, DFA<ImmutableList<char>, string>>>();
+
+            byte[] serialized = traits.SerializeToBytes(lexer);
+            ImmutableSortedDictionary<string, DFA<ImmutableList<char>, string>> deserialized = traits.DeserializeFromBytes(serialized);
+
+            Assert.IsTrue(traits.IsAnalogous(lexer, deserialized));
+        }
+
+        [TestMethod]
+        public void SerializeLexerRulesTest()
+        {
+            ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>> localLexerRules = lexerRules.Value;
+
+            var traits = Builder.Instance.GetTypeTraits<ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>>>();
+
+            byte[] serialized = traits.SerializeToBytes(localLexerRules);
+            ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>> deserialized = traits.DeserializeFromBytes(serialized);
+
+            Assert.IsTrue(traits.IsAnalogous(localLexerRules, deserialized));
+        }
+
+        private static readonly Lazy<ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>>> lexerRules =
+            new Lazy<ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>>>
+            (
+                GetLexerRules,
+                LazyThreadSafetyMode.ExecutionAndPublication
+            );
+
+        private static ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>> GetLexerRules()
+        {
+            return ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>>.Empty.Add
+            (
+                "main",
+                [
+                    new RegexLexerRule<string>("[ |\\r|\\n|\\t|\\f|\\v]+", "WhiteSpace"),
+                    new LiteralLexerRule<string>("(", "LParen"),
+                    new RegexLexerRule<string>("-?(0|[1-9][0-9]*)", "Integer"),
+                    new LiteralLexerRule<string>(")", "RParen"),
+                    new RegexLexerRule<string>("[A-Z|a-z|_|$][A-Z|A-z|0-9|_|$]*", "Identifier"),
+                    new LiteralLexerRule<string>("\"", "BeginString"),
+                ]
+            )
+            .Add
+            (
+                "string",
+                [
+                    new LiteralLexerRule<string>("\"", "EndString"),
+                    new RegexLexerRule<string>("[~\"&~\\\\]+", "StringContent"),
+                ]
+            );
         }
 
         private ImmutableSortedDictionary<string, DFA<ImmutableList<char>, string>> GenerateLexer()
         {
             return LexerGen.GenerateLexer
             (
-                ImmutableSortedDictionary<string, ImmutableList<LexerRule<string>>>.Empty.Add
-                (
-                    "main",
-                    [
-                        new RegexLexerRule<string>("[ |\\r|\\n|\\t|\\f|\\v]+", "WhiteSpace"),
-                        new LiteralLexerRule<string>("(", "LParen"),
-                        new RegexLexerRule<string>("-?(0|[1-9][0-9]*)", "Integer"),
-                        new LiteralLexerRule<string>(")", "RParen"),
-                        new RegexLexerRule<string>("[A-Z|a-z|_|$][A-Z|A-z|0-9|_|$]*", "Identifier")
-                    ]
-                ),
-                StringTypeTraits.Value,
-                StringTypeTraits.Value
+                lexerRules.Value
             );
         }
     }

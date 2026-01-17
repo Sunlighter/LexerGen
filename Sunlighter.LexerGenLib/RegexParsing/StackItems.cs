@@ -1,5 +1,6 @@
 ﻿using Sunlighter.OptionLib;
 using Sunlighter.TypeTraitsLib;
+using Sunlighter.TypeTraitsLib.Building;
 using System.Collections.Immutable;
 
 namespace Sunlighter.LexerGenLib.RegexParsing
@@ -41,110 +42,39 @@ namespace Sunlighter.LexerGenLib.RegexParsing
         Option<int> TryStackItemToInt(TStackItem item);
     }
 
+    [UnionOfDescendants]
     public abstract class StackItem<TSet, TChar>
     {
-        public static ITypeTraits<StackItem<TSet, TChar>> GetTypeTraits
-        (
-            ITypeTraits<TSet> setTypeTraits,
-            ITypeTraits<TChar> charTypeTraits
-        )
-        {
-            ITypeTraits<RegexCharForSet<TChar>> regexCharForSetTraits = RegexCharForSet<TChar>.GetTypeTraits(charTypeTraits);
-
-            ITypeTraits<RegexCharSet<TChar>> regexCharSetTraits = RegexCharSet<TChar>.GetTypeTraits(charTypeTraits, regexCharForSetTraits);
-
-            ITypeTraits<RegexSyntax<TChar>> regexSyntaxTraits = RegexSyntax<TChar>.GetTypeTraits(charTypeTraits, regexCharForSetTraits, regexCharSetTraits);
-
-            return new UnionTypeTraits<string, StackItem<TSet, TChar>>
-            (
-                StringTypeTraits.Value,
-                [
-                    new UnionCaseTypeTraits2<string, StackItem<TSet, TChar>, StackItemChar<TSet, TChar>>
-                    (
-                        "Char",
-                        new ConvertTypeTraits<StackItemChar<TSet, TChar>, TChar>
-                        (
-                            s1 => s1.Value,
-                            charTypeTraits,
-                            ch => new StackItemChar<TSet, TChar>(ch)
-                        )
-                    ),
-                    new UnionCaseTypeTraits2<string, StackItem<TSet, TChar>, StackItemInt<TSet, TChar>>
-                    (
-                        "Int",
-                        new ConvertTypeTraits<StackItemInt<TSet, TChar>, int>
-                        (
-                            s1 => s1.Value,
-                            Int32TypeTraits.Value,
-                            i => new StackItemInt<TSet, TChar>(i)
-                        )
-                    ),
-                    new UnionCaseTypeTraits2<string, StackItem<TSet, TChar>, StackItemCharList<TSet, TChar>>
-                    (
-                        "CharList",
-                        new ConvertTypeTraits<StackItemCharList<TSet, TChar>, ImmutableList<TChar>>
-                        (
-                            s1 => s1.Value,
-                            new ListTypeTraits<TChar>(charTypeTraits),
-                            chList => new StackItemCharList<TSet, TChar>(chList)
-                        )
-                    ),
-                    new UnionCaseTypeTraits2<string, StackItem<TSet, TChar>, StackItemRegexCharForSet<TSet, TChar>>
-                    (
-                        "RegexCharForSet",
-                        new ConvertTypeTraits<StackItemRegexCharForSet<TSet, TChar>, RegexCharForSet<TChar>>
-                        (
-                            s1 => s1.Value,
-                            regexCharForSetTraits,
-                            rcs => new StackItemRegexCharForSet<TSet, TChar>(rcs)
-                        )
-                    ),
-                    new UnionCaseTypeTraits2<string, StackItem<TSet, TChar>, StackItemRegexCharSet<TSet, TChar>>
-                    (
-                        "RegexCharSet",
-                        new ConvertTypeTraits<StackItemRegexCharSet<TSet, TChar>, RegexCharSet<TChar>>
-                        (
-                            s1 => s1.Value,
-                            regexCharSetTraits,
-                            rcs => new StackItemRegexCharSet<TSet, TChar>(rcs)
-                        )
-                    ),
-                    new UnionCaseTypeTraits2<string, StackItem<TSet, TChar>, StackItemRegexSyntax<TSet, TChar>>
-                    (
-                        "RegexSyntax",
-                        new ConvertTypeTraits<StackItemRegexSyntax<TSet, TChar>, RegexSyntax<TChar>>
-                        (
-                            s1 => s1.Value,
-                            regexSyntaxTraits,
-                            rs => new StackItemRegexSyntax<TSet, TChar>(rs)
-                        )
-                    )
-                ]
-            );
-        }
+        
     }
 
+    [Record]
+    [UnionCaseName("stackItemChar")]
     public sealed class StackItemChar<TSet, TChar> : StackItem<TSet, TChar>
     {
         private readonly TChar value;
 
-        public StackItemChar(TChar value)
+        public StackItemChar([Bind("value")] TChar value)
         {
             this.value = value;
         }
 
+        [Bind("value")]
         public TChar Value => value;
     }
 
+    [Record]
+    [UnionCaseName("stackItemInt")]
     public sealed class StackItemInt<TSet, TChar> : StackItem<TSet, TChar>
     {
         private readonly int value;
 
-        public StackItemInt(int value)
+        public StackItemInt([Bind("value")] int value)
         {
             this.value = value;
         }
 
+        [Bind("value")]
         public int Value => value;
     }
 
@@ -162,51 +92,63 @@ namespace Sunlighter.LexerGenLib.RegexParsing
     }
 #endif
 
+    [Record]
+    [UnionCaseName("stackItemCharList")]
     public sealed class StackItemCharList<TSet, TChar> : StackItem<TSet, TChar>
     {
         private readonly ImmutableList<TChar> value;
 
-        public StackItemCharList(ImmutableList<TChar> value)
+        public StackItemCharList([Bind("value")] ImmutableList<TChar> value)
         {
             this.value = value;
         }
 
+        [Bind("value")]
         public ImmutableList<TChar> Value => value;
     }
 
+    [Record]
+    [UnionCaseName("stackItemRegexCharForSet")]
     public sealed class StackItemRegexCharForSet<TSet, TChar> : StackItem<TSet, TChar>
     {
         private readonly RegexCharForSet<TChar> value;
 
-        public StackItemRegexCharForSet(RegexCharForSet<TChar> value)
+        public StackItemRegexCharForSet([Bind("value")] RegexCharForSet<TChar> value)
         {
             this.value = value;
         }
 
+        [Bind("value")]
         public RegexCharForSet<TChar> Value => value;
     }
 
+    [Record]
+    [UnionCaseName("stackItemRegexCharSet")]
     public sealed class StackItemRegexCharSet<TSet, TChar> : StackItem<TSet, TChar>
     {
         private readonly RegexCharSet<TChar> value;
 
-        public StackItemRegexCharSet(RegexCharSet<TChar> value)
+        public StackItemRegexCharSet([Bind("value")] RegexCharSet<TChar> value)
         {
             this.value = value;
         }
-
+        
+        [Bind("value")]
         public RegexCharSet<TChar> Value => value;
     }
-
+    
+    [Record]
+    [UnionCaseName("stackItemRegexSyntax")]
     public sealed class StackItemRegexSyntax<TSet, TChar> : StackItem<TSet, TChar>
     {
         private readonly RegexSyntax<TChar> value;
 
-        public StackItemRegexSyntax(RegexSyntax<TChar> value)
+        public StackItemRegexSyntax([Bind("value")] RegexSyntax<TChar> value)
         {
             this.value = value;
         }
 
+        [Bind("value")]
         public RegexSyntax<TChar> Value => value;
     }
 

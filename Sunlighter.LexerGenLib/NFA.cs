@@ -1,5 +1,6 @@
 ﻿using Sunlighter.OptionLib;
 using Sunlighter.TypeTraitsLib;
+using Sunlighter.TypeTraitsLib.Building;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 
@@ -751,6 +752,7 @@ namespace Sunlighter.LexerGenLib
         }
     }
 
+    [Record]
     public sealed class DFA<TSet, TAccept>
     {
         private readonly int startState;
@@ -762,10 +764,10 @@ namespace Sunlighter.LexerGenLib
 
         public DFA
         (
-            int startState,
-            Option<int> deadState,
-            ImmutableSortedDictionary<int, ImmutableList<(TSet, int)>> transitions,
-            ImmutableSortedDictionary<int, TAccept> acceptCodes
+            [Bind("startState")] int startState,
+            [Bind("deadState")] Option<int> deadState,
+            [Bind("transitions")] ImmutableSortedDictionary<int, ImmutableList<(TSet, int)>> transitions,
+            [Bind("acceptCodes")] ImmutableSortedDictionary<int, TAccept> acceptCodes
         )
         {
             this.startState = startState;
@@ -780,12 +782,16 @@ namespace Sunlighter.LexerGenLib
             );
         }
 
+        [Bind("startState")]
         public int StartState => startState;
 
+        [Bind("deadState")]
         public Option<int> DeadState => deadState;
 
+        [Bind("transitions")]
         public ImmutableSortedDictionary<int, ImmutableList<(TSet, int)>> Transitions => transitions;
 
+        [Bind("acceptCodes")]
         public ImmutableSortedDictionary<int, TAccept> AcceptCodes => acceptCodes;
 
         public ImmutableSortedSet<int> AllStates => allStates.Value;
